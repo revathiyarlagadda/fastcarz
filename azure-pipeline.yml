@@ -1,0 +1,129 @@
+resources: 
+  repositories:
+    - repository: web
+      type: github # as the assignment is in github we are using github. If the repo's are in azure git, then this will be git. Then we can skip endpoint.
+      endpoint: fastcarz-github-svc-connection # Assume there is a service connection in Azure devops for git hub         
+      name: fastcarzweb
+      ref: 'refs/heads/main' # if ever there is version control, we can have it as ref/tags/{tag}
+      trigger: # we can include paths as well in trigger condition
+        branches:
+          include:
+            - main
+        paths:
+          exclude:
+            - Readme.md
+            - .gitignore
+        
+    - repository: api
+      type: github
+      endpoint: fastcarz-github-svc-connection # Assume there is a service connection in Azure devops for git hub         
+      name: fastcarzapi
+      ref: 'refs/heads/main' # if ever there is version control, we can have it as ref/tags/{tag}
+      trigger: # we can include paths as well in trigger condition
+        branches:
+          include:
+            - main      
+        paths:
+          exclude:
+            - Readme.md
+            - .gitignore
+        
+    - repository: test
+      type: github
+      endpoint: fastcarz-github-svc-connection # Assume there is a service connection in Azure devops for git hub         
+      name: fastcarztest
+      ref: 'refs/heads/main' # if ever there is version control, we can have it as ref/tags/{tag}
+      trigger: # we can include paths as well in trigger condition
+        branches:
+          include:
+            - main      
+        paths:
+          exclude:
+            - Readme.md
+            - .gitignore
+
+parameters: # capturing the above repositories as parameters to take advantage of parallel builds
+  - name: repositories
+    type: object
+    default:
+      - web
+      - api
+      - test
+  - name: environments
+    type: object
+    default:
+      - dev
+      - qa
+      - prod
+
+variables:
+  - group: dev_vars
+  - group: qa_vars
+  - group: prod_vars      
+
+pool:  
+  name: Default # Tested with Local self-Hosted agent
+
+stages:
+  - stage: Build
+    jobs:  
+      - ${{ each repo in prameters.repositories }}:
+        - job: ${{ repo }}
+          strategy:
+            maxParallel: 3 # Up to us We can even skip this if steps are sequential
+            matrix:
+              repos:
+                repo: ${{ repo }}
+          steps:
+          - checkout : ${{ repo }}
+          - template: /Templates/build.yml
+            parameters:
+              proj_type: ${{ repo }} # we use this to differentiate drop paths
+
+  - stage: Dev
+    displayName: Deploy to dev
+    dependsOn: Build # Depends on Build stage to make sure it shouldn't start before that.
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'')) # Run deploy to dev only if build is success
+    jobs:
+      - template: /Templates/deploy.yml
+        parameters: #below pipeline variables come from variable groups
+          environment: Dev
+          svc_connection_name: $(dev_svc_connection_name)
+          webappname: $(dev_webappname)
+          apiname: $(dev_apiname)
+
+  - stage: Qa
+    displayName: Deploy to Qa
+    dependsOn:
+      - Build # Depends on Build stage to make sure it shouldn't start before that.
+      - Dev # To make sure this runs after Dev
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'')) # Run deploy to dev only if build is success
+    jobs:
+      - deployment: Approval
+        displayName: QA approval gate
+        environment: StageApproval # environment needs to be created upfront with approvate gates        
+      - template: /Templates/deploy.yml
+        parameters: #below pipeline variables come from variable groups
+          environment: QA
+          svc_connection_name: $(qa_svc_connection_name)
+          webappname: $(qa_webappname)
+          apiname: $(qa_apiname)
+
+  - stage: Prod
+    displayName: Deploy to Qa
+    dependsOn:
+      - Build # Depends on Build stage to make sure it shouldn't start before that.
+      - Dev # To make sure this runs after Dev
+      - Qa
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'')) # Run deploy to dev only if build is success
+    jobs:
+      - deployment: Approval
+        displayName: Prod approval gate
+        environment: StageApproval # environment needs to be created upfront with approvate gates
+        
+      - template: /Templates/deploy.yml
+        parameters: #below pipeline variables come from variable groups
+          environment: Prod
+          svc_connection_name: $(prod_svc_connection_name)
+          webappname: $(prod_webappname)
+          apiname: $(prod_apiname)          

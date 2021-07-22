@@ -1,0 +1,31 @@
+parameters:
+- name: environment
+- name: svc_connection_name  
+- name: webappname
+- name: apiname
+jobs:
+  - deployment: DeployAPI
+    displayName: Deploy API to ${{ parameters.environment }}
+    #environment: ${{ parameters.environment }}
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - pwsh: "Install terraform version"
+            - pwsh: "Run terraform tasks to have base infra" # Store the necessary variables in respective variable groups to support infra deployment
+            - task: AzureWebApp@1
+              displayName: 'Dev WEB'
+              inputs:
+                azureSubscription: '${{ parameters.svc_connection_name }}' # Assuming there are service connections for each env
+                appType: 'webApp'
+                appName: ${{ parameters.webappname }}
+                package: '$(Pipeline.Workspace)/web/**/*.zip'
+                deploymentMethod: 'auto'
+            - task: AzureWebApp@1
+              displayName: 'Dev API'
+              inputs:
+                azureSubscription: '${{ parameters.svc_connection_name }}' # Assuming there are service connections for each env
+                appType: 'webApp'
+                appName: '${{ parameters.apiname }}'
+                package: '$(Pipeline.Workspace)/api/**/*.zip'
+                deploymentMethod: 'auto'
