@@ -3,7 +3,7 @@ resources:
     - repository: web
       type: github # as the assignment is in github we are using github. If the repo's are in azure git, then this will be git. Then we can skip endpoint.
       endpoint: fastcarz-github-svc-connection # Assume there is a service connection in Azure devops for git hub         
-      name: fastcarzweb
+      name: revathiyarlagadda/fastcarzweb
       ref: 'refs/heads/main' # if ever there is version control, we can have it as ref/tags/{tag}
       trigger: # we can include paths as well in trigger condition
         branches:
@@ -17,7 +17,7 @@ resources:
     - repository: api
       type: github
       endpoint: fastcarz-github-svc-connection # Assume there is a service connection in Azure devops for git hub         
-      name: fastcarzapi
+      name: revathiyarlagadda/fastcarzapi
       ref: 'refs/heads/main' # if ever there is version control, we can have it as ref/tags/{tag}
       trigger: # we can include paths as well in trigger condition
         branches:
@@ -31,7 +31,7 @@ resources:
     - repository: test
       type: github
       endpoint: fastcarz-github-svc-connection # Assume there is a service connection in Azure devops for git hub         
-      name: fastcarztest
+      name: revathiyarlagadda/fastcarztest
       ref: 'refs/heads/main' # if ever there is version control, we can have it as ref/tags/{tag}
       trigger: # we can include paths as well in trigger condition
         branches:
@@ -49,12 +49,7 @@ parameters: # capturing the above repositories as parameters to take advantage o
       - web
       - api
       - test
-  - name: environments
-    type: object
-    default:
-      - dev
-      - qa
-      - prod
+
 
 variables:
   - group: dev_vars
